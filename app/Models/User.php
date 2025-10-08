@@ -17,6 +17,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use App\Notifications\CustomVerifyEmail;
 use App\Notifications\DisapprovalNotification;
 use App\Notifications\IssuancePermitNotification;
+use App\Notifications\RegistrationSuccessNotification;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\SuccessRegistrationNotification;
@@ -31,7 +32,7 @@ class User extends Authenticatable implements LdapAuthenticatable, MustVerifyEma
      *
      * @var array<int, string>
      */
-    
+
     protected $fillable = [
         'email',
         'password',
@@ -72,15 +73,15 @@ class User extends Authenticatable implements LdapAuthenticatable, MustVerifyEma
     }
     public function sendSuccessRegistrationNotification()
     {
-        $this->notify(new SuccessRegistrationNotification());
+        $this->notify(new RegistrationSuccessNotification());
     }
     public function sendNewPassword($password)
     {
         $this->notify(new ResetPasswordNotification($password));
     }
-    public function sendPermitNotification($stage, $type, $reference_code)
+    public function sendPermitNotification($type)
     {
-        $this->notify(new ApprovalStageNotification($stage, $type, $reference_code));
+        $this->notify(new ApprovalStageNotification($type));
     }
     public function sendDisapprovalNotification($reason, $permit_type)
     {

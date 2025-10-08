@@ -3,23 +3,22 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- <title>{{ $permitType }} Approved</title> -->
     <style>
         body {
             font-family: "Inter", Arial, sans-serif;
-            background-color: #f4f6f8;
+            background-color: #f4f6f88f;
             padding: 40px;
             color: #333;
         }
 
         .card {
-            max-width: 600px;
+            max-width: 1200px;
             margin: 0 auto;
             background: #fff;
-            border-radius: 10px;
+            /* border-radius: 10px; */
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             overflow: hidden;
-            border-top: 6px solid #1a56db;
+            border-top: 6px solid #0e6672ff;
             /* Blue top border */
         }
 
@@ -47,7 +46,7 @@
             display: inline-block;
             margin-top: 20px;
             padding: 12px 24px;
-            background-color: #1a56db;
+            background-color: #0e6672ff;
             color: #fff;
             font-weight: 600;
             text-decoration: none;
@@ -69,22 +68,38 @@
     </style>
 </head>
 
-<body>
+<body style="background-color:#f4f6f88f">
+    <div style="text-align:center; margin-bottom: 20px;">
+        @php
+        $logoPath = public_path('images/emailLogo.png');
+        if (isset($message) && file_exists($logoPath)) {
+        $logoSrc = $message->embed($logoPath);
+        } else {
+        $base = isset($actionUrl) && $actionUrl ? rtrim($actionUrl, '/') : rtrim(config('app.url', ''), '/');
+        if ($base) {
+        $logoSrc = $base . '/images/emailLogo.png';
+        } else {
+        $logoSrc = asset('images/emailLogo.png');
+        }
+        }
+        @endphp
+        <img src="{{ $logoSrc }}" alt="Logo" width="350" style="display:inline-block;" />
+    </div>
     <div class="card">
-        <!-- <div class="header">
-            <h2>Registration Verified 🎉</h2>
-        </div> -->
         <div class="content">
             <p>Congratulation&nbsp;,{{ $user->fname }}</p>
             <p>You have successfully registered your account. You may now apply for Mayors Clearance, Mayor's Certification and Special Permits.
             </p>
-            <a href="{{ $actionURL }}" class="button">Visit OSPAS</a>
+            <div style="text-align:center;">
+                <a href="{{ $actionUrl }}" class="button" style="color: #fff; display: inline-block;">Visit OSPAS</a>
+            </div>
             <p>For futher inquiry, please contact the Business Licensing Section at 09513884193 or email us at cbpld@butuan.gov.ph</p>
         </div>
-        <div class="footer">
-            <p>Thank you for using the Online Special Permit Application System (OSPAS).</p>
-            <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
-        </div>
+
+    </div>
+    <div class="footer">
+        <p>Thank you for using the Online Special Permit Application System (OSPAS).</p>
+        <p>&copy; {{ date('Y') }} {{ config('app.name') }}. All rights reserved.</p>
     </div>
 </body>
 

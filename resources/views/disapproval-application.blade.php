@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- <title>{{ $permitType }} Approved</title> -->
+
     <style>
         body {
             font-family: "Inter", Arial, sans-serif;
@@ -79,7 +79,7 @@
             <p>Thank you for using Online Special Permit Application System (OSPAS). Your application for <strong>{{$permit_type}}</strong> has beedn <strong>DISAPPROVED</strong> by the office due to the following reason:</p>
             <p>{{$reason}}</p>
             <p> To proceed, please submit the required documents indicated above.</p>
-            <!-- <a href="{{ $actionURL }}" class="button">Proceed to OSPAS</a> -->
+
             <p>For futher inquiry, please contact the Business Licensing Section at 09513884193 or email us at cbpld@butuan.gov.ph</p>
         </div>
         <div class="footer">

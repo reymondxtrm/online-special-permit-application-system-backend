@@ -110,40 +110,51 @@ class SpecialPermitAdminController extends Controller
                 $permit_application = SpecialPermitApplication::where('id', $order_of_payment->special_permit_application_id)
                     ->first();
                 $permit_type = SpecialPermitType::where('id', $permit_application->special_permit_type_id)->first(['id', 'name', 'code']);
-                // return $permit_type;
+
                 $reference_code = "";
                 $year = Carbon::now()->year;
-                $client = User::where('id', $permit_application->user_id)->first(['id', 'fname', 'mname', 'lname', 'suffix', 'email']);
-
-                if ($permit_type->code == "good_moral") {
-                    $current_code = ReferenceCode::where('permit_type', "good_moral")->first(['current_reference_code', 'id']);
-                    $reference_code = $year . '-' . 'CGM' . '-' . 'ON' . '-' . str_pad(($current_code->current_reference_code + 1), 4, '0', STR_PAD_LEFT);
-                } else if ($permit_type->code == 'mayors_permit') {
-                    $current_code = ReferenceCode::where('permit_type', "mayors_permit")->first(['current_reference_code', 'id']);
-                    $reference_code = $year . '-' . 'C' . '-' . 'ON' . '-' . str_pad(($current_code->current_reference_code + 1), 5, '0', STR_PAD_LEFT);
-                } else if ($permit_type->code == 'event') {
-                    $current_code = ReferenceCode::where('permit_type', "event")->first(['current_reference_code', 'id']);
-                    $reference_code = $year . '-' . 'EVT' . '-' . 'ON' . '-' . str_pad(($current_code->current_reference_code + 1), 3, '0', STR_PAD_LEFT);
-                } else if ($permit_type->code == 'motorcade') {
-                    $current_code = ReferenceCode::where('permit_type', "motorcade")->first(['current_reference_code', 'id']);
-                    $reference_code = $year . '-' . 'MOT' . '-' . 'ON' . '-' . str_pad(($current_code->current_reference_code + 1), 3, '0', STR_PAD_LEFT);
-                } else if ($permit_type->code == "parade") {
-                    $current_code = ReferenceCode::where('permit_type', "parade")->first(['current_reference_code', 'id']);
-                    $reference_code = $year . '-' . 'PAR' . '-' . 'ON' . '-' . str_pad(($current_code->current_reference_code + 1), 3, '0', STR_PAD_LEFT);
-                } else if ($permit_type->code == "recorrida") {
-                    $current_code = ReferenceCode::where('permit_type', "recorrida")->first(['current_reference_code', 'id']);
-                    $reference_code = $year . '-' . 'REC' . '-' . 'ON' . '-' . str_pad(($current_code->current_reference_code + 1), 3, '0', STR_PAD_LEFT);
-                } else if ($permit_type->code == "use_of_government_property") {
-                    $current_code = ReferenceCode::where('permit_type', "use_of_government_property")->first(['current_reference_code', 'id']);
-                    $reference_code = $year . '-' . 'UGP' . '-' . 'ON' . '-' . str_pad(($current_code->current_reference_code + 1), 5, '0', STR_PAD_LEFT);
-                } else if ($permit_type->code == "occupational__permit") {
-                    $current_code = ReferenceCode::where('permit_type', "occupational_permit")->first(['current_reference_code', 'id']);
-                    $reference_code = $year . '-' . 'COP' . '-' . 'ON' . '-' . str_pad(($current_code->current_reference_code + 1), 3, '0', STR_PAD_LEFT);
+                $typeKey = $permit_type->code;
+                $format = null;
+                switch ($typeKey) {
+                    case 'good_moral':
+                        $format = ['prefix' => 'CGM', 'pad' => 4];
+                        break;
+                    case 'mayors_permit':
+                        $format = ['prefix' => 'C', 'pad' => 5];
+                        break;
+                    case 'event':
+                        $format = ['prefix' => 'EVT', 'pad' => 3];
+                        break;
+                    case 'motorcade':
+                        $format = ['prefix' => 'MOT', 'pad' => 3];
+                        break;
+                    case 'parade':
+                        $format = ['prefix' => 'PAR', 'pad' => 3];
+                        break;
+                    case 'recorrida':
+                        $format = ['prefix' => 'REC', 'pad' => 3];
+                        break;
+                    case 'use_of_government_property':
+                        $format = ['prefix' => 'UGP', 'pad' => 5];
+                        break;
+                    case 'occupational__permit':
+                        $format = ['prefix' => 'COP', 'pad' => 3];
+                        break;
+                    default:
+                        $format = ['prefix' => 'GEN', 'pad' => 4];
                 }
+
+                $current_code = ReferenceCode::firstOrCreate(
+                    ['permit_type' => $typeKey],
+                    ['current_reference_code' => 0]
+                );
+
+
+                ReferenceCode::where('id', $current_code->id)->increment('current_reference_code');
+                $current_code = ReferenceCode::where('id', $current_code->id)->first(['current_reference_code', 'id']);
+
+                $reference_code = $year . '-' . $format['prefix'] . '-' . 'ON' . '-' . str_pad($current_code->current_reference_code, $format['pad'], '0', STR_PAD_LEFT);
                 $new_status = SpecialPermitStatus::where('code', 'for_signature')->first();
-                ReferenceCode::where('id', $current_code->id)->update([
-                    'current_reference_code' => $current_code->current_reference_code + 1
-                ]);
 
                 $special = DB::table('special_permit_applications')
                     ->where('id', $order_of_payment->special_permit_application_id)
@@ -212,11 +223,12 @@ class SpecialPermitAdminController extends Controller
                 ->first();
 
             $user = Auth::user();
-
+            $special_permit_application = SpecialPermitApplication::where('id', $order_of_payment->special_permit_application_id)->first();
             if ($order_of_payment) {
 
                 $new_status = SpecialPermitStatus::where('code', 'returned')->first();
-
+                $client = User::where('id', $special_permit_application->user_id)->first();
+                $permit_type = SpecialPermitType::where('id', $special_permit_application->special_permit_type_id)->first();
                 DB::table('special_permit_applications')
                     ->where('id', $order_of_payment->special_permit_application_id)
                     ->update([
@@ -229,6 +241,7 @@ class SpecialPermitAdminController extends Controller
                 $status_history->special_permit_status_id = $new_status->id;
                 $status_history->remarks = $rq->remarks;
                 $status_history->save();
+                $client->sendDisapprovalNotification($rq->remarks, $permit_type->name);
             } else {
                 return response([
                     'message' => 'Permit Application not found'
@@ -265,7 +278,7 @@ class SpecialPermitAdminController extends Controller
 
             $permit_application = SpecialPermitApplication::where('id', $permit_exemption->special_permit_application_id)
                 ->first();
-
+            $client = User::where('id', $permit_application->user_id)->first();
             if ($permit_exemption) {
 
                 $order_of_payment = new OrderOfPayment();
@@ -319,6 +332,7 @@ class SpecialPermitAdminController extends Controller
                 $permit_type = SpecialPermitType::where('id', $permit_application->special_permit_type_id)->first();
                 $count = $this->count($permit_application->special_permit_type_id, $new_status->id);
                 broadcast(new DocumentStageMoved($permit_type->code, 'for_payment', $count));
+                $client->sendPermitNotification($permit_type->name);
                 DB::commit();
 
                 return response([
@@ -349,9 +363,9 @@ class SpecialPermitAdminController extends Controller
 
             $permit_exemption = PermitApplicationExemption::where('id', $rq->permit_application_exemption_id)
                 ->first();
-
+            $client = User::where('id', $rq->user_id)->first();
             if ($permit_exemption) {
-
+                $permit_application =  PermitApplicationExemption::where('id', $rq->permit_application_exemption_id)->first();
                 PermitApplicationExemption::where('id', $rq->permit_application_exemption_id)
                     ->update(
                         [
@@ -359,6 +373,8 @@ class SpecialPermitAdminController extends Controller
                             'user_id' => $user->id
                         ]
                     );
+                $permit_type = SpecialPermitType::where('id', $permit_application->special_permit_type_id)->first();
+                $client->sendDisapprovalNotification('Your request for exemption was not granted. Please proceed with the regular requirement', $permit_type->name);
                 DB::commit();
                 return response([
                     'message' => 'success'
@@ -803,7 +819,7 @@ class SpecialPermitAdminController extends Controller
             $user = Auth::user();
             $status = SpecialPermitStatus::where('code', 'pending')->first();
             $check_permit = SpecialPermitApplication::where('id', $rq->special_permit_application_id)->where('special_permit_status_id', $status->id)->first();
-
+            $client = User::where('id', $check_permit->user_id)->first();
 
             if ($rq->event_type) {
                 $check_permit->event_type = $rq->event_type;
@@ -854,6 +870,7 @@ class SpecialPermitAdminController extends Controller
                 $permit_type = SpecialPermitType::where('id', $check_permit->special_permit_type_id)->first();
                 $count = $this->count($permit_type->id, $new_status->id);
                 broadcast(new DocumentStageMoved($permit_type->code, 'for_payment', $count));
+                $client->sendPermitNotification($permit_type->name);
                 DB::commit();
                 return response([
                     'message' => "success"
@@ -904,6 +921,9 @@ class SpecialPermitAdminController extends Controller
                 $status_history->special_permit_status_id = $new_status->id;
                 $status_history->remarks = $rq->remarks;
                 $status_history->save();
+                $client = User::where('id', $check_permit->user_id)->first();
+                $special_permit_type = SpecialPermitType::where('id', $check_permit->special_permit_type_id)->first();
+                $client->sendDisapprovalNotification($rq->remarks, $special_permit_type->name);
             }
 
 
@@ -959,7 +979,9 @@ class SpecialPermitAdminController extends Controller
                 $complete_permit->applicant_id = $check_permit->user_id;
                 $complete_permit->admin_id = $user->id;
                 $complete_permit->save();
-
+                $permit_type = SpecialPermitType::where('id', $check_permit->special_permit_typr_id)->first();
+                $client = User::where('id', $check_permit->user_id)->first();
+                $client->sendIssuancePermitNotifcation($permit_type->name);
                 DB::commit();
                 return response([
                     'message' => "success"

@@ -42,7 +42,11 @@ class RegistrationSuccessNotification extends Notification implements ShouldQueu
     {
         $frontendUrl = config('app.frontend_url');
         return (new MailMessage)
-            ->subject('Successfull Registered at Online Special Permit Application System.')->view('success-registration', ['user' => $notifiable, 'actionURl' => $frontendUrl]);
+            ->subject('Registration successful — Online Special Permit Application System')
+            ->view('success-registration', [
+                'user' => $notifiable,
+                'actionUrl' => $frontendUrl,
+            ]);
     }
 
     /**

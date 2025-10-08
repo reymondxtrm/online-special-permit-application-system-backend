@@ -16,14 +16,13 @@ class ApprovalStageNotification extends Notification implements ShouldQueue
      *
      * @return void
      */
-    private $stage;
+
     private $type;
-    private $permit_code;
-    public function __construct($stage, $type, $reference_code)
+
+    public function __construct($type)
     {
-        $this->stage = $stage;
+
         $this->type = $type;
-        $this->permit_code = $reference_code;
     }
     // $stage
     /**

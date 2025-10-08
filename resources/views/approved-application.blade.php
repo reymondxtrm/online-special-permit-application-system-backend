@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- <title>{{ $permitType }} Approved</title> -->
+
     <style>
         body {
             font-family: "Inter", Arial, sans-serif;
