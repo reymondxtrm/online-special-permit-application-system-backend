@@ -42,11 +42,7 @@ class RegistrationSuccessNotification extends Notification implements ShouldQueu
     {
         $frontendUrl = config('app.frontend_url');
         return (new MailMessage)
-            ->subject('Successfull Registered at Online Special Permit Application System.')
-            ->greeting('Congratulation,' . $notifiable->fname)
-            ->line("You have successfully registered your account. You may now apply for the Mayor's Clearance. Mayor's Cerification and Special Permits.")
-            ->line('For further inquiry, please contact the business Licensing Section at 09513884193 or email us at cbpld@butuan.gov.ph')
-            ->action('Visit OSPAS', $frontendUrl);
+            ->subject('Successfull Registered at Online Special Permit Application System.')->view('success-registration', ['user' => $notifiable, 'actionURl' => $frontendUrl]);
     }
 
     /**

@@ -43,11 +43,19 @@ class DisapprovalNotification extends Notification implements ShouldQueue
      */
     public function toMail($notifiable)
     {
+        $frontendUrl = config('app.frontend_url');
+
         return (new MailMessage)
-            ->greeting('Hi ' . $notifiable->fname)
-            ->line('Thank you for using the Online Special Permit Application System (OSPAS). Your application for' . $this->application_type . ' has been disapproved.')
-            ->line($this->reason)
-            ->line('To proceed, pleas submit the required documents indicated above. For Further inquiry, please contact the Business Licencing Section at 09513884193 or email us at cbpld@butuan.gov.ph.');
+            ->subject('Decline Permit Application')
+            ->view(
+                'disapproval-application',
+                [
+                    'user' => $notifiable,
+                    'permit_type' => $this->application_type,
+                    'reason' => $this->reason,
+                    'frontendURL' => $frontendUrl
+                ]
+            );
     }
     /**
      * Get the array representation of the notification.

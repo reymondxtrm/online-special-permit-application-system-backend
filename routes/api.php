@@ -179,8 +179,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         // Post Requests
         Route::post('/approve-payment', [SpecialPermitAdminController::class, 'approvePayment']);
         Route::post('/return-payment', [SpecialPermitAdminController::class, 'returnPayment']);
-        Route::post('/check-attachments', [SpecialPermitAdminController::class, 'checkAttachments']);
-        Route::post('/decline-application', [SpecialPermitAdminController::class, 'declineApplication']);
+        Route::post('/check-attachments', [SpecialPermitAdminController::class, 'checkAttachments']);  //from pending to for_payment 
+        Route::post('/decline-application', [SpecialPermitAdminController::class, 'declineApplication']); //pending to decline
         Route::post('/upload-permit', [SpecialPermitAdminController::class, 'uploadPermit']);
         Route::post('/create/discount-case', [SpecialPermitAdminController::class, 'createDiscountCase']);
         Route::post('/create/exempted-case', [SpecialPermitAdminController::class, 'createExemptedCase']);
@@ -188,9 +188,10 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('/add/list-purpose', [SpecialPermitAdminController::class, 'addToListPurpose']);
         Route::post('/change/purpose', [SpecialPermitAdminController::class, 'changePurpose']);
         Route::post('/approve/discount', [SpecialPermitAdminController::class, 'approveDiscount']);
-        Route::post('/approve/exemption', [SpecialPermitAdminController::class, 'approveExemption']);
-        Route::post('/decline/exemption', [SpecialPermitAdminController::class, 'declineExemption']);
+        Route::post('/approve/exemption', [SpecialPermitAdminController::class, 'approveExemption']); //from pending to for_payment 
+        Route::post('/decline/exemption', [SpecialPermitAdminController::class, 'declineExemption']); // decline from pending
         Route::post('/decline/discount', [SpecialPermitAdminController::class, 'declineDiscount']);
+        Route::post('/update-tab-notification', [SpecialPermitController::class, 'updateTabNotification']);
     });
 });
 

@@ -15,7 +15,7 @@ return new class extends Migration
     {
         Schema::table('special_permit_applications', function (Blueprint $table) {
 
-            $table->boolean('mark_as_read')->nullable();
+            $table->string('mark_as_read')->nullable();
         });
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\DocumentStageMoved;
 use Exception;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -23,6 +24,13 @@ use Illuminate\Support\Facades\Password;
 class SpecialPermitClientController extends Controller
 {
     //
+    public function count($doc_type_id, $status_id)
+    {
+        $count = SpecialPermitApplication::where('special_permit_type_id', $doc_type_id)->where('special_permit_status_id', $status_id)
+            ->whereNull('mark_as_read')
+            ->count();
+        return $count;
+    }
 
     public function getExemptedCases(Request $rq)
     {
@@ -278,7 +286,7 @@ class SpecialPermitClientController extends Controller
 
             $status = SpecialPermitStatus::where('code', 'for_payment')->first();
 
-            $check_permit = DB::table('special_permit_applications')->where('id', $rq->special_permit_application_id)
+            $check_permit = SpecialPermitApplication::where('id', $rq->special_permit_application_id)
                 ->where('special_permit_status_id', $status->id)
                 ->first();
 
@@ -312,7 +320,11 @@ class SpecialPermitClientController extends Controller
                 $status_history->special_permit_application_id = $rq->special_permit_application_id;
                 $status_history->special_permit_status_id = $new_status->id;
                 $status_history->save();
-
+                $check_permit->mark_as_read = null;
+                $check_permit->save();
+                $permit_type = SpecialPermitType::where('id', $check_permit->special_permit_type_id)->first();
+                $count = $this->count($permit_type->id, $new_status->id);
+                broadcast(new DocumentStageMoved($permit_type->code, 'for_payment_approval', $count));
                 DB::commit();
                 return response([
                     'message' => "success"
@@ -344,7 +356,7 @@ class SpecialPermitClientController extends Controller
 
             $status = SpecialPermitStatus::where('code', 'returned')->first();
 
-            $check_permit = DB::table('special_permit_applications')->where('id', $rq->special_permit_application_id)
+            $check_permit = SpecialPermitApplication::where('id', $rq->special_permit_application_id)
                 ->where('special_permit_status_id', $status->id)
                 ->first();
 
@@ -372,7 +384,11 @@ class SpecialPermitClientController extends Controller
                 $status_history->special_permit_application_id = $rq->special_permit_application_id;
                 $status_history->special_permit_status_id = $new_status->id;
                 $status_history->save();
-
+                $check_permit->mark_as_read = null;
+                $check_permit->save();
+                $permit_type = SpecialPermitType::where('id', $check_permit->special_permit_type_id);
+                $count = $this->count($permit_type->id, $new_status->id);
+                broadcast(new DocumentStageMoved($permit_type->code, 'for_payment', $count));
                 DB::commit();
                 return response([
                     'message' => "success"

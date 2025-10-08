@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\DocumentStageMoved;
 use Exception;
 use App\Models\User;
 use App\Models\PermitType;
@@ -26,10 +27,18 @@ use App\Models\ReferenceCode;
 use App\Services\SmsService;
 use Carbon\Carbon;
 use League\CommonMark\Reference\Reference;
+use PhpParser\Node\Stmt\TryCatch;
 
 class SpecialPermitAdminController extends Controller
 {
     protected $sms;
+    public function count($doc_type_id, $status_id)
+    {
+        $count = SpecialPermitApplication::where('special_permit_type_id', $doc_type_id)->where('special_permit_status_id', $status_id)
+            ->whereNull('mark_as_read')
+            ->count();
+        return $count;
+    }
 
     public function __construct(SmsService $sms)
     {
@@ -168,6 +177,11 @@ class SpecialPermitAdminController extends Controller
                 $stage = "FOR SIGNATURE";
                 $type = $permit_type->name;
                 // $client->sendPermitNotification($stage, $type, $reference_code);
+                $permit_application->mark_as_read = null;
+                $permit_application->save();
+                $permit_type = SpecialPermitType::where('id', $permit_application->special_permit_type_id)->first();
+                $count = $this->count($permit_type->id, $new_status->id);
+                broadcast(new DocumentStageMoved($permit_type->code, 'for_signature', $count));
                 DB::commit();
                 return response([
                     'message' => 'success'
@@ -293,8 +307,6 @@ class SpecialPermitAdminController extends Controller
                 $status_history->save();
 
 
-
-
                 PermitApplicationExemption::where('id', $rq->permit_application_exemption_id)
                     ->update(
                         [
@@ -302,7 +314,11 @@ class SpecialPermitAdminController extends Controller
                             'user_id' => $user->id
                         ]
                     );
-
+                $permit_application->mark_as_read = null;
+                $permit_application->save();
+                $permit_type = SpecialPermitType::where('id', $permit_application->special_permit_type_id)->first();
+                $count = $this->count($permit_application->special_permit_type_id, $new_status->id);
+                broadcast(new DocumentStageMoved($permit_type->code, 'for_payment', $count));
                 DB::commit();
 
                 return response([
@@ -343,9 +359,7 @@ class SpecialPermitAdminController extends Controller
                             'user_id' => $user->id
                         ]
                     );
-
                 DB::commit();
-
                 return response([
                     'message' => 'success'
                 ]);
@@ -720,6 +734,7 @@ class SpecialPermitAdminController extends Controller
             ->when($rq->permit_type, function ($query) use ($permit_type) {
                 $query->where('special_permit_type_id', $permit_type->id);
             })
+            ->orderByRaw('CASE WHEN mark_as_read IS NULL THEN 0 ELSE 1 END, created_at DESC')
             ->with(['applicationPurpose' => function ($query) {
                 $query->select('id', 'name');
             }])
@@ -789,9 +804,6 @@ class SpecialPermitAdminController extends Controller
             $status = SpecialPermitStatus::where('code', 'pending')->first();
             $check_permit = SpecialPermitApplication::where('id', $rq->special_permit_application_id)->where('special_permit_status_id', $status->id)->first();
 
-            // $check_permit = DB::table('special_permit_applications')->where('id', $rq->special_permit_application_id)
-            //     ->where('special_permit_status_id', $status->id)
-            //     ->first();
 
             if ($rq->event_type) {
                 $check_permit->event_type = $rq->event_type;
@@ -836,7 +848,12 @@ class SpecialPermitAdminController extends Controller
                 $status_history->special_permit_application_id = $rq->special_permit_application_id;
                 $status_history->special_permit_status_id = $new_status->id;
                 $status_history->save();
+                $check_permit->mark_as_read = null;
+                $check_permit->save();
 
+                $permit_type = SpecialPermitType::where('id', $check_permit->special_permit_type_id)->first();
+                $count = $this->count($permit_type->id, $new_status->id);
+                broadcast(new DocumentStageMoved($permit_type->code, 'for_payment', $count));
                 DB::commit();
                 return response([
                     'message' => "success"
@@ -960,12 +977,16 @@ class SpecialPermitAdminController extends Controller
     }
     public function getCount(Request $rq)
     {
-        $counts = SpecialPermitApplication::selectRaw('special_permit_type_id, COUNT(*) as total')
-            ->where('special_permit_status_id', $rq->permit_type_id)
-            ->whereNull('mark_as_read')
-            ->groupBy('special_permit_type_id')
+        $counts = SpecialPermitApplication::selectRaw('
+        special_permit_types.code AS code,
+        COUNT(*) AS total
+    ')
+            ->join('special_permit_types', 'special_permit_applications.special_permit_type_id', '=', 'special_permit_types.id')
+            ->where('special_permit_applications.special_permit_status_id', $rq->permit_type_id)
+            ->whereNull('special_permit_applications.mark_as_read')
+            ->groupBy('special_permit_applications.special_permit_type_id', 'special_permit_types.code')
             ->get();
 
-        return response()->json(['counts' => $counts], 200);
+        return response()->json($counts, 200);
     }
 }

@@ -18,14 +18,15 @@ use App\Models\PermitApplicationExemption;
 use App\Models\SpecialPermitStatus;
 use App\Models\StatusHistory;
 use App\Models\UserAddress;
+use Carbon\Carbon;
 
 class SpecialPermitController extends Controller
 {
     //
 
-    private function count($doc_type_id)
+    private function count($doc_type_id, $status_id)
     {
-        $count = SpecialPermitApplication::where('special_permit_type_id', $doc_type_id)
+        $count = SpecialPermitApplication::where('special_permit_type_id', $doc_type_id)->where('special_permit_status_id', $status_id)
             ->whereNull('mark_as_read')
             ->count();
         return $count;
@@ -107,8 +108,8 @@ class SpecialPermitController extends Controller
             // $token = $user->createToken('dsfhjkshd$sdlkfjsdl@#$SADFDLfjsdkfjdsfsdf');
 
             // return $token->plainTextToken;
-            $count = $this->count($permit_type->id);
-            broadcast(new DocumentStageMoved($permit_type->name, "pending", $count))->toOthers();
+            $count = $this->count($permit_type->id, $status->id);
+            broadcast(new DocumentStageMoved($permit_type->code, "pending", $count))->toOthers();
             DB::commit();
             return response([
                 'message' => "success"
@@ -123,7 +124,7 @@ class SpecialPermitController extends Controller
     {
         DB::beginTransaction();
         try {
-            return "nice";
+
 
             $permit_type = SpecialPermitType::where('code', 'good_moral')->first();
             $status = SpecialPermitStatus::where('code', 'pending')->first();
@@ -153,8 +154,6 @@ class SpecialPermitController extends Controller
             $goodMoral->user_id = $user->id;
             $goodMoral->special_permit_type_id = $permit_type->id;
             $goodMoral->application_purpose_id = $purpose_id;
-            // $goodMoral->reference_no = $reference_no;
-            // $goodMoral->name_of_employeer = $rq->name_of_employeer;
             $goodMoral->special_permit_status_id = $status->id;
             $goodMoral->user_address_id = $address->id;
             $goodMoral->save();
@@ -185,8 +184,8 @@ class SpecialPermitController extends Controller
             $uploaded_file->fiscal_clearance = $rq->file('fiscal_clearance')->storeAs('uploaded_files/goodMoral/' . $goodMoral->id, date('YmdHi') . '-FiscalClearance-' . $goodMoral->id . '.jpg', 'public');
             $uploaded_file->court_clearance = $rq->file('court_clearance')->storeAs('uploaded_files/goodMoral/' . $goodMoral->id, date('YmdHi') . '-CourtClearance-' . $goodMoral->id . '.jpg', 'public');
             $uploaded_file->save();
-            $count = $this->count($permit_type->id);
-            broadcast(new DocumentStageMoved($permit_type->name, "pending", $count))->toOthers();
+            $count = $this->count($permit_type->id, $status->id);
+            broadcast(new DocumentStageMoved($permit_type->code, "pending", $count))->toOthers();
 
 
             DB::commit();
@@ -241,8 +240,8 @@ class SpecialPermitController extends Controller
             $uploaded_file->request_letter = $rq->file('request_letter')->storeAs('uploaded_files/event/' . $event->id, date('YmdHi') . '-RequestLetter-' . $event->id . '.jpg', 'public');
             $uploaded_file->sworn_statement = $rq->file('sworn_statement')->storeAs('uploaded_files/event/' . $event->id, date('YmdHi') . '-SwornStatement-' . $event->id . '.jpg', 'public');
             $uploaded_file->save();
-            $count = $this->count($permit_type->id);
-            broadcast(new DocumentStageMoved($permit_type->name, "pending", $count))->toOthers();
+            $count = $this->count($permit_type->id, $status->id);
+            broadcast(new DocumentStageMoved($permit_type->code, "pending", $count))->toOthers();
             DB::commit();
             return response([
                 'message' => "success"
@@ -299,7 +298,7 @@ class SpecialPermitController extends Controller
             $uploaded_file->request_letter = $rq->file('request_letter')->storeAs('uploaded_files/motorcade/' . $motorcade->id, date('YmdHi') . '-RequestLetter-' . $motorcade->id . '.jpg', 'public');
             $uploaded_file->route_plan = $rq->file('route_plan')->storeAs('uploaded_files/motorcade/' . $motorcade->id, date('YmdHi') . '-RoutePlan-' . $motorcade->id . '.jpg', 'public');
             // $uploaded_file->official_receipt = $rq->file('official_receipt')->storeAs('uploaded_files/motorcade/'.$motorcade->id,date('YmdHi').'-OfficialReceipt-'.$motorcade->id.'.jpg', 'public');
-            $count = $this->count($permit_type->id);
+            $count = $this->count($permit_type->id, $status->id);
             broadcast(new DocumentStageMoved($permit_type->name, "pending", $count))->toOthers();
             $uploaded_file->save();
 
@@ -360,8 +359,8 @@ class SpecialPermitController extends Controller
             // $uploaded_file->official_receipt = $rq->file('official_receipt')->storeAs('uploaded_files/parade/'.$parade->id,date('YmdHi').'-OfficialReceipt-'.$parade->id.'.jpg', 'public');
 
             $uploaded_file->save();
-            $count = $this->count($permit_type->id);
-            broadcast(new DocumentStageMoved($permit_type->name, "pending", $count))->toOthers();
+            $count = $this->count($permit_type->id, $status->id);
+            broadcast(new DocumentStageMoved($permit_type->code, "pending", $count))->toOthers();
             DB::commit();
             return response([
                 'message' => "success"
@@ -418,8 +417,8 @@ class SpecialPermitController extends Controller
             $uploaded_file->request_letter = $rq->file('request_letter')->storeAs('uploaded_files/recorrida/' . $recorrida->id, date('YmdHi') . '-RequestLetter-' . $recorrida->id . '.jpg', 'public');
             $uploaded_file->route_plan = $rq->file('route_plan')->storeAs('uploaded_files/recorrida/' . $recorrida->id, date('YmdHi') . '-RoutePlan-' . $recorrida->id . '.jpg', 'public');
             // $uploaded_file->official_receipt = $rq->file('official_receipt')->storeAs('uploaded_files/recorrida/'.$recorrida->id,date('YmdHi').'-OfficialReceipt-'.$recorrida->id.'.jpg', 'public');
-            $count = $this->count($permit_type->id);
-            broadcast(new DocumentStageMoved($permit_type->name, "pending", $count))->toOthers();
+            $count = $this->count($permit_type->id, $status->id);
+            broadcast(new DocumentStageMoved($permit_type->code, "pending", $count))->toOthers();
             $uploaded_file->save();
 
             DB::commit();
@@ -484,8 +483,8 @@ class SpecialPermitController extends Controller
             return response([
                 'message' => "success"
             ]);
-            $count = $this->count($permit_type->id);
-            broadcast(new DocumentStageMoved($permit_type->name, "pending", $count))->toOthers();
+            $count = $this->count($permit_type->id, $status->id);
+            broadcast(new DocumentStageMoved($permit_type->code, "pending", $count))->toOthers();
         } catch (\Exception $e) {
             DB::rollback();
             return response(['message' => $e->getMessage()], 500);
@@ -534,7 +533,7 @@ class SpecialPermitController extends Controller
             // $uploaded_file->official_receipt = $rq->file('official_receipt')->storeAs('uploaded_files/occupationalPermit/'.$occupationalPermit->id,date('YmdHi').'-OfficialReceipt-'.$occupationalPermit->id.'.jpg', 'public');
 
             $uploaded_file->save();
-            $count = $this->count($permit_type->id);
+            $count = $this->count($permit_type->id, $status->id);
             broadcast(new DocumentStageMoved($permit_type->name, "pending", $count))->toOthers();
             DB::commit();
             return response([
@@ -567,5 +566,30 @@ class SpecialPermitController extends Controller
         // return response()->json(['files' => $files]);
         return response()->file(storage_path('app/public/' . $uploadFile->police_clearance));
     }
-   
+    public function updateTabNotification(Request $rq)
+    {
+        $rq->validate([
+            'permit_type' => 'required',
+            'stage' => 'required',
+            'permit_id' => 'required'
+
+        ]);
+        DB::beginTransaction();
+
+        try {
+            $permit = SpecialPermitApplication::where('id', $rq->permit_id)->first();
+            $permit->mark_as_read = Carbon::now();
+            $permit->save();
+            $permit_type = SpecialPermitType::where('code', $rq->permit_type)->first('id');
+            $permit_stage = SpecialPermitStatus::where('code', $rq->stage)->first('id');
+            $count = $this->count($permit_type->id, $permit_stage->id);
+
+            broadcast(new DocumentStageMoved($rq->permit_type, $rq->stage, $count))->toOthers();
+            DB::commit();
+            return response(['message' => "success"], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response(['message' => $e->getMessage()], 500);
+        }
+    }
 }

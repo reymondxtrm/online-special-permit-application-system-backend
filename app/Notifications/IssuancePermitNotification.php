@@ -41,10 +41,17 @@ class IssuancePermitNotification extends Notification implements ShouldQueue
      */
     public function toMail($notifiable)
     {
+        $frontendURL = config('app.frontend_url');
         return (new MailMessage)
-            ->line('Hi ' . $notifiable->fname)
-            ->line('Your ' . $this->permit_type . ' has been issued. To view, please click:')
-            ->action('proceed to Online Services', url('/'));
+            ->subject('Permit Successfully Issued')
+            ->view(
+                'permit-issuance',
+                [
+                    'user' => $notifiable,
+                    'frontendURL' => $frontendURL,
+                    'permit_type' => $$this->permit_type,
+                ]
+            );
     }
 
     /**

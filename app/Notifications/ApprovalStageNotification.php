@@ -47,14 +47,7 @@ class ApprovalStageNotification extends Notification implements ShouldQueue
     {
         $frontendUrl = config('app.frontend_url');
         return (new MailMessage)
-            ->subject('Permit Approved')
-            ->greeting('Hi ' . $notifiable->fname . ',')
-            ->line('Thank you for using Online Specila PErmit Application System (OSPAS). Your application for' . $this->type . 'has been APPROVED. To proceed with the next transaction, please click the Proceed to Online Services.')
-            ->action(
-                'Proceed to Online Serices.',
-                $frontendUrl
-            )
-            ->line('For Further inquiry, please contact the Business Licensing Section at 09513884193 or email us at cbpld@butuan.gov.ph.');
+            ->subject('Permit Approved')->view('approved-application', ['user' => $notifiable, 'permit_type' => $this->type, 'frontendURL' => $frontendUrl]);
     }
 
     /**
