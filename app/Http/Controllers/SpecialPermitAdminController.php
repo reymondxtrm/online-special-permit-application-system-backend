@@ -123,22 +123,22 @@ class SpecialPermitAdminController extends Controller
                         $format = ['prefix' => 'C', 'pad' => 5];
                         break;
                     case 'event':
-                        $format = ['prefix' => 'EVT', 'pad' => 3];
+                        $format = ['prefix' => 'EVT', 'pad' => 4];
                         break;
                     case 'motorcade':
-                        $format = ['prefix' => 'MOT', 'pad' => 3];
+                        $format = ['prefix' => 'MOT', 'pad' => 4];
                         break;
                     case 'parade':
-                        $format = ['prefix' => 'PAR', 'pad' => 3];
+                        $format = ['prefix' => 'PAR', 'pad' => 4];
                         break;
                     case 'recorrida':
-                        $format = ['prefix' => 'REC', 'pad' => 3];
+                        $format = ['prefix' => 'REC', 'pad' => 4];
                         break;
                     case 'use_of_government_property':
                         $format = ['prefix' => 'UGP', 'pad' => 5];
                         break;
                     case 'occupational__permit':
-                        $format = ['prefix' => 'COP', 'pad' => 3];
+                        $format = ['prefix' => 'COP', 'pad' => 4];
                         break;
                     default:
                         $format = ['prefix' => 'GEN', 'pad' => 4];
@@ -234,7 +234,6 @@ class SpecialPermitAdminController extends Controller
                     ->update([
                         'special_permit_status_id' => $new_status->id,
                     ]);
-
                 $status_history = new StatusHistory();
                 $status_history->user_id = $user->id;
                 $status_history->special_permit_application_id = $order_of_payment->special_permit_application_id;
@@ -264,91 +263,255 @@ class SpecialPermitAdminController extends Controller
 
     public function approveExemption(Request $rq)
     {
-        request()->validate([
-            'permit_application_exemption_id' => 'required',
+        $rq->validate([
+            // 'permit_application_exemption_id' => 'required',
         ]);
 
         DB::beginTransaction();
-        try {
 
+        try {
             $user = Auth::user();
 
-            $permit_exemption = PermitApplicationExemption::where('id', $rq->permit_application_exemption_id)
-                ->first();
+            // Get related permit application
+            $permit_application = SpecialPermitApplication::findOrFail($rq->special_permit_application_id);
 
-            $permit_application = SpecialPermitApplication::where('id', $permit_exemption->special_permit_application_id)
-                ->first();
-            $client = User::where('id', $permit_application->user_id)->first();
-            if ($permit_exemption) {
+            // If admin is adding a new exemption
+            if ($rq->admin) {
+                $permit_type = SpecialPermitType::find($permit_application->special_permit_type_id);
 
-                $order_of_payment = new OrderOfPayment();
-                $order_of_payment->special_permit_application_id = $permit_application->id;
-                $order_of_payment->permit_application_exemption_id = $permit_exemption->id;
-                $order_of_payment->exempted_case_id = $permit_exemption->exempted_case_id;
-                $order_of_payment->applicant_id = $permit_application->user_id;
-                $order_of_payment->admin_id = $user->id;
-                $order_of_payment->billed_amount = 0;
-                // $order_of_payment->exemption_amount = null;
-                $order_of_payment->total_amount = 0;
-                $order_of_payment->save();
+                $exemption = new PermitApplicationExemption();
+                $exemption->special_permit_application_id = $permit_application->id;
+                $exemption->exempted_case_id = $rq->exemption_id;
 
-                $payment_details = new PaymentDetail();
-                $payment_details->order_of_payment_id = $order_of_payment->id;
-                $payment_details->special_permit_application_id = $order_of_payment->special_permit_application_id;
-                $payment_details->paid_amount = 0;
-                $payment_details->reference_no = null;
-                $payment_details->or_no = null;
-                $payment_details->attachment = null;
-                $payment_details->applicant_id = $permit_application->user_id;
-                $payment_details->admin_id = $user->id;
-                $payment_details->payment_type = 'waived';
-                $payment_details->status = 'waived';
-                $payment_details->save();
-
-                $new_status = SpecialPermitStatus::where('code', 'for_signature')->first();
-
-                DB::table('special_permit_applications')
-                    ->where('id', $permit_application->id)
-                    ->update([
-                        'special_permit_status_id' => $new_status->id,
-                    ]);
-
-                $status_history = new StatusHistory();
-                $status_history->user_id = $user->id;
-                $status_history->special_permit_application_id = $rq->special_permit_application_id;
-                $status_history->special_permit_status_id = $new_status->id;
-                $status_history->save();
-
-
-                PermitApplicationExemption::where('id', $rq->permit_application_exemption_id)
-                    ->update(
-                        [
-                            'status' => 'approved',
-                            'user_id' => $user->id
-                        ]
+                if ($rq->hasFile('exemption_proof')) {
+                    $filePath = $rq->file('exemption_proof')->storeAs(
+                        'exemption/applications/' . $permit_application->id,
+                        date('YmdHi') . '-' . $permit_type->code . '.' . $rq->file('exemption_proof')->getClientOriginalExtension(),
+                        'public'
                     );
-                $permit_application->mark_as_read = null;
-                $permit_application->save();
-                $permit_type = SpecialPermitType::where('id', $permit_application->special_permit_type_id)->first();
-                $count = $this->count($permit_application->special_permit_type_id, $new_status->id);
-                broadcast(new DocumentStageMoved($permit_type->code, 'for_payment', $count));
-                $client->sendPermitNotification($permit_type->name);
-                DB::commit();
+                    $exemption->attachment = $filePath;
+                }
 
-                return response([
-                    'message' => 'success'
-                ]);
+                $exemption->status = 'approved';
+                $exemption->user_id = $user->id;
+                $exemption->save();
+
+                // Make sure we use the newly created exemption in the next step
+                $permit_exemption = $exemption;
             } else {
-                return response([
-                    'message' => 'Permit Exemption not found'
-                ]);
+                // Otherwise, fetch the existing exemption
+                $permit_exemption = PermitApplicationExemption::find($rq->permit_application_exemption_id);
             }
-        } catch (Exception $e) {
 
-            DB::rollback();
+            // If no exemption record found
+            if (!$permit_exemption) {
+                return response(['message' => 'Permit Exemption not found'], 404);
+            }
+
+            // Create Order of Payment
+            $order_of_payment = new OrderOfPayment();
+            $order_of_payment->special_permit_application_id = $permit_application->id;
+            $order_of_payment->permit_application_exemption_id = $permit_exemption->id;
+            $order_of_payment->exempted_case_id = $permit_exemption->exempted_case_id;
+            $order_of_payment->applicant_id = $permit_application->user_id;
+            $order_of_payment->admin_id = $user->id;
+            $order_of_payment->billed_amount = 0;
+            $order_of_payment->total_amount = 0;
+            $order_of_payment->save();
+
+            $payment_details = new PaymentDetail();
+            $payment_details->order_of_payment_id = $order_of_payment->id;
+            $payment_details->special_permit_application_id = $order_of_payment->special_permit_application_id;
+            $payment_details->paid_amount = 0;
+            $payment_details->reference_no = null;
+            $payment_details->or_no = null;
+            $payment_details->attachment = null;
+            $payment_details->applicant_id = $permit_application->user_id;
+            $payment_details->admin_id = $user->id;
+            $payment_details->payment_type = 'waived';
+            $payment_details->status = 'waived';
+            $payment_details->save();
+
+
+            $new_status = SpecialPermitStatus::where('code', 'for_signature')->first();
+
+            // $permit_application->update([
+            //     'special_permit_status_id' => $new_status->id,
+            //     'mark_as_read' => null,
+            // ]);
+            $permit_application->special_permit_status_id = $new_status->id;
+            $permit_application->mark_as_read = null;
+            $permit_application->save();
+
+            $history = new StatusHistory();
+            $history->user_id = $user->id;
+            $history->special_permit_application_id = $permit_application->id;
+            $history->Special_permit_status_id = $new_status->id;
+            $history->save();
+
+            // Send notifications
+            $permit_type = SpecialPermitType::find($permit_application->special_permit_type_id);
+            $count = $this->count($permit_application->special_permit_type_id, $new_status->id);
+            broadcast(new DocumentStageMoved($permit_type->code, 'for_payment', $count));
+
+            $client = User::find($permit_application->user_id);
+            $client->sendPermitNotification($permit_type->name);
+            $reference_code = "";
+            $year = Carbon::now()->year;
+            $typeKey = $permit_type->code;
+            $format = null;
+            switch ($typeKey) {
+                case 'good_moral':
+                    $format = ['prefix' => 'CGM', 'pad' => 4];
+                    break;
+                case 'mayors_permit':
+                    $format = ['prefix' => 'C', 'pad' => 5];
+                    break;
+                case 'event':
+                    $format = ['prefix' => 'EVT', 'pad' => 4];
+                    break;
+                case 'motorcade':
+                    $format = ['prefix' => 'MOT', 'pad' => 4];
+                    break;
+                case 'parade':
+                    $format = ['prefix' => 'PAR', 'pad' => 4];
+                    break;
+                case 'recorrida':
+                    $format = ['prefix' => 'REC', 'pad' => 4];
+                    break;
+                case 'use_of_government_property':
+                    $format = ['prefix' => 'UGP', 'pad' => 5];
+                    break;
+                case 'occupational__permit':
+                    $format = ['prefix' => 'COP', 'pad' => 4];
+                    break;
+                default:
+                    $format = ['prefix' => 'GEN', 'pad' => 4];
+            }
+
+            $current_code = ReferenceCode::firstOrCreate(
+                ['permit_type' => $typeKey],
+                ['current_reference_code' => 0]
+            );
+
+
+            ReferenceCode::where('id', $current_code->id)->increment('current_reference_code');
+            $current_code = ReferenceCode::where('id', $current_code->id)->first(['current_reference_code', 'id']);
+
+            $reference_code = $year . '-' . $format['prefix'] . '-' . 'ON' . '-' . str_pad($current_code->current_reference_code, $format['pad'], '0', STR_PAD_LEFT);
+            $new_status = SpecialPermitStatus::where('code', 'for_signature')->first();
+
+            DB::table('special_permit_applications')
+                ->where('id', $order_of_payment->special_permit_application_id)
+                ->update([
+                    'special_permit_status_id' => $new_status->id,
+                    'reference_no' => $reference_code,
+                ]);
+
+            DB::commit();
+
+            return response(['message' => 'success'], 200);
+        } catch (Exception $e) {
+            DB::rollBack();
             return response(['message' => $e->getMessage()], 500);
         }
     }
+    // public function approveExemption(Request $rq)
+    // {
+    //     request()->validate([
+    //         'permit_application_exemption_id' => 'required',
+    //     ]);
+
+    //     DB::beginTransaction();
+    //     try {
+
+    //         $user = Auth::user();
+
+    //         $permit_application = SpecialPermitApplication::where('id', $permit_exemption->special_permit_application_id)
+    //             ->first();
+
+    //         if ($rq->admin) {
+    //             $exemption = new PermitApplicationExemption();
+    //             $exemption->special_permit_application_id = $permit_application->id;
+    //             $exemption->exempted_case_id = $rq->exemption_id;
+    //             $exemption->attachment = $rq->file('exemption_proof')->storeAs('exemption/applications/' . $goodMoral->id, date('YmdHi') . '-' . $permit_type->code . '.' . $rq->file('exemption_proof')->getClientOriginalExtension(), 'public');
+    //             $exemption->status = 'approved';
+    //             $exemption->save();
+    //         }
+    //         $permit_exemption = PermitApplicationExemption::where('id', $rq->permit_application_exemption_id)
+    //             ->first(); {
+    //         }
+
+    //         $client = User::where('id', $permit_application->user_id)->first();
+    //         if ($permit_exemption) {
+    //             $order_of_payment = new OrderOfPayment();
+    //             $order_of_payment->special_permit_application_id = $permit_application->id;
+    //             $order_of_payment->permit_application_exemption_id = $permit_exemption->id;
+    //             $order_of_payment->exempted_case_id = $permit_exemption->exempted_case_id;
+    //             $order_of_payment->applicant_id = $permit_application->user_id;
+    //             $order_of_payment->admin_id = $user->id;
+    //             $order_of_payment->billed_amount = 0;
+    //             // $order_of_payment->exemption_amount = null;
+    //             $order_of_payment->total_amount = 0;
+    //             $order_of_payment->save();
+
+    //             $payment_details = new PaymentDetail();
+    //             $payment_details->order_of_payment_id = $order_of_payment->id;
+    //             $payment_details->special_permit_application_id = $order_of_payment->special_permit_application_id;
+    //             $payment_details->paid_amount = 0;
+    //             $payment_details->reference_no = null;
+    //             $payment_details->or_no = null;
+    //             $payment_details->attachment = null;
+    //             $payment_details->applicant_id = $permit_application->user_id;
+    //             $payment_details->admin_id = $user->id;
+    //             $payment_details->payment_type = 'waived';
+    //             $payment_details->status = 'waived';
+    //             $payment_details->save();
+
+    //             $new_status = SpecialPermitStatus::where('code', 'for_signature')->first();
+
+    //             DB::table('special_permit_applications')
+    //                 ->where('id', $permit_application->id)
+    //                 ->update([
+    //                     'special_permit_status_id' => $new_status->id,
+    //                 ]);
+
+    //             $status_history = new StatusHistory();
+    //             $status_history->user_id = $user->id;
+    //             $status_history->special_permit_application_id = $rq->special_permit_application_id;
+    //             $status_history->special_permit_status_id = $new_status->id;
+    //             $status_history->save();
+
+
+    //             PermitApplicationExemption::where('id', $rq->permit_application_exemption_id)
+    //                 ->update(
+    //                     [
+    //                         'status' => 'approved',
+    //                         'user_id' => $user->id
+    //                     ]
+    //                 );
+    //             $permit_application->mark_as_read = null;
+    //             $permit_application->save();
+    //             $permit_type = SpecialPermitType::where('id', $permit_application->special_permit_type_id)->first();
+    //             $count = $this->count($permit_application->special_permit_type_id, $new_status->id);
+    //             broadcast(new DocumentStageMoved($permit_type->code, 'for_payment', $count));
+    //             $client->sendPermitNotification($permit_type->name);
+    //             DB::commit();
+
+    //             return response([
+    //                 'message' => 'success'
+    //             ]);
+    //         } else {
+    //             return response([
+    //                 'message' => 'Permit Exemption not found'
+    //             ]);
+    //         }
+    //     } catch (Exception $e) {
+
+    //         DB::rollback();
+    //         return response(['message' => $e->getMessage()], 500);
+    //     }
+    // }
 
     public function declineExemption(Request $rq)
     {
@@ -830,7 +993,6 @@ class SpecialPermitAdminController extends Controller
                 $applicant = User::where('id', $check_permit->user_id)->first();
             }
 
-
             if ($check_permit) {
 
                 $order_of_payment = new OrderOfPayment();
@@ -952,7 +1114,6 @@ class SpecialPermitAdminController extends Controller
             $user = Auth::user();
 
             $status = SpecialPermitStatus::where('code', 'for_signature')->first();
-
             $check_permit = DB::table('special_permit_applications')->where('id', $rq->special_permit_application_id)
                 ->where('special_permit_status_id', $status->id)
                 ->first();
@@ -979,7 +1140,7 @@ class SpecialPermitAdminController extends Controller
                 $complete_permit->applicant_id = $check_permit->user_id;
                 $complete_permit->admin_id = $user->id;
                 $complete_permit->save();
-                $permit_type = SpecialPermitType::where('id', $check_permit->special_permit_typr_id)->first();
+                $permit_type = SpecialPermitType::where('id', $check_permit->special_permit_type_id)->first();
                 $client = User::where('id', $check_permit->user_id)->first();
                 $client->sendIssuancePermitNotifcation($permit_type->name);
                 DB::commit();

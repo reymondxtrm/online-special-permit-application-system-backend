@@ -192,6 +192,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('/decline/exemption', [SpecialPermitAdminController::class, 'declineExemption']); // decline from pending
         Route::post('/decline/discount', [SpecialPermitAdminController::class, 'declineDiscount']);
         Route::post('/update-tab-notification', [SpecialPermitController::class, 'updateTabNotification']);
+        Route::get('/get/exempted-cases', [SpecialPermitClientController::class, 'getExemptedCases']);
     });
 });
 
